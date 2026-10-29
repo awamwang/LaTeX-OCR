@@ -19,16 +19,12 @@ from screeninfo import get_monitors
 from pix2tex import cli
 from pix2tex.utils import in_model_path
 from latex2sympy2 import latex2sympy
+from sympy import solve as solving, latex
+from latexCalculator import calculate_expr, to_sympy
 
 import pix2tex.resources.resources
 
 ACCEPTED_IMAGE_SUFFIX = ['png', 'jpg', 'jpeg']
-
-def to_sympy(latex):
-    normalized = re.sub(r'operatorname\*{(\w+)}', '\g<1>', latex)
-    sympy_expr = latex2sympy(f'${normalized}$')
-    return sympy_expr
-
 
 class WebView(QWebEngineView):
     def __init__(self, app) -> None:
@@ -129,6 +125,11 @@ class App(QMainWindow):
         self.retryButton.setEnabled(False)
         self.retryButton.clicked.connect(self.returnSnip)
 
+        # Create eval button
+        self.tryEvalButton = QPushButton('Try Eval', self)
+        self.tryEvalButton.setEnabled(False)
+        self.tryEvalButton.clicked.connect(self.tryEval)
+
         # Create layout
         centralWidget = QWidget()
         centralWidget.setMinimumWidth(200)
@@ -143,6 +144,7 @@ class App(QMainWindow):
         buttons = QHBoxLayout()
         buttons.addWidget(self.snipButton)
         buttons.addWidget(self.retryButton)
+        buttons.addWidget(self.tryEvalButton)
         lay.addLayout(buttons)
         settings = QFormLayout()
         settings.addRow('Temperature:', self.tempField)
@@ -165,6 +167,7 @@ class App(QMainWindow):
                 text = 'Snip [Alt+S]'
             func = self.onClick
             self.retryButton.setEnabled(True)
+            self.tryEvalButton.setEnabled(True)
         self.shortcut.setEnabled(not self.isProcessing)
         self.snipButton.setText(text)
         self.snipButton.clicked.disconnect()
@@ -371,6 +374,17 @@ class App(QMainWindow):
                 """.format(equation=prediction)
         self.webView.setHtml(pageSource)
 
+    def tryEval(self):
+        try:
+            expr = to_sympy(self.raw_prediction)
+            # print(self.raw_prediction, code)
+            ret = calculate_expr(expr)
+            self.error.setText(str(ret))
+            return ret
+        except Exception as e:
+            print(e)
+            self.error.setText("Failed to evaluate.")
+            # return code
 
 class ModelThread(QThread):
     finished = pyqtSignal(dict)
